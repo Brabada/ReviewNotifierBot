@@ -4,9 +4,23 @@ from time import sleep
 
 import requests
 from environs import Env
+import telegram
 
 
-def long_poll_review_list(personal_token, timestamp=0):
+def send_message_by_bot(bot_credentials, response):
+    bot = telegram.Bot(token=bot_credentials['bot_token'])
+    chat_id = bot_credentials['chat_id']
+    intro_message = f'У вас проверили работу "{response["lesson_title"]}."'
+    lesson_url_message = f'Ссылка на работу: {response["lesson_url"]}'
+    if response['is_negative']:
+        result_message = 'К сожалению в работе нашлись ошибки.'
+    else:
+        result_message = 'Преподавателю всё понравилось, можно приступать к следующему уроку!'
+    message = f'{intro_message}\n\n{lesson_url_message}\n\n{result_message}'
+    bot.send_message(chat_id=chat_id, text=message)
+
+
+def long_poll_review_list(personal_token, bot_credentials, timestamp=0):
 
     headers = {
         'Authorization': f'Token {personal_token}',
@@ -31,11 +45,13 @@ def long_poll_review_list(personal_token, timestamp=0):
         return
 
     response.raise_for_status()
-    response_json = response.json()
-    pprint.pprint(response_json)
+    response = response.json()
+    pprint.pprint(response)
 
-    if response_json["status"] == "timeout":
-        return response_json["timestamp_to_request"]
+    if response["status"] == "timeout":
+        return response["timestamp_to_request"]
+    else:
+        send_message_by_bot(bot_credentials, response['new_attempts'][0])
 
 
 def main():
@@ -45,9 +61,14 @@ def main():
     env.read_env()
     token = env.str("PERSONAL_TOKEN")
     timestamp = 0
+    bot_credentials = {
+        'bot_token': env.str("BOT_TOKEN"),
+        'chat_id': env.int('chat_id'),
+    }
+
     try:
         while True:
-            timestamp = long_poll_review_list(token, timestamp)
+            timestamp = long_poll_review_list(token, bot_credentials, timestamp)
     except requests.HTTPError:
         logging.error("Can't retrieve review list from API.")
 
