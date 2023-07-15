@@ -46,7 +46,6 @@ def long_poll_review_list(personal_token, bot_credentials, timestamp=0):
 
     response.raise_for_status()
     response = response.json()
-    pprint.pprint(response)
 
     if response["status"] == "timeout":
         return response["timestamp_to_request"]
@@ -56,10 +55,12 @@ def long_poll_review_list(personal_token, bot_credentials, timestamp=0):
 
 def main():
 
-    logging.basicConfig(level=logging.DEBUG)
     env = Env()
     env.read_env()
-    token = env.str("PERSONAL_TOKEN")
+    if env.bool("LOGGING_DEBUG"):
+        logging.basicConfig(level=logging.DEBUG)
+
+    personal_token = env.str("PERSONAL_TOKEN")
     timestamp = 0
     bot_credentials = {
         'bot_token': env.str("BOT_TOKEN"),
@@ -68,7 +69,7 @@ def main():
 
     try:
         while True:
-            timestamp = long_poll_review_list(token, bot_credentials, timestamp)
+            timestamp = long_poll_review_list(personal_token, bot_credentials, timestamp)
     except requests.HTTPError:
         logging.error("Can't retrieve review list from API.")
 
