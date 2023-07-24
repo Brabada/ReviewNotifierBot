@@ -7,12 +7,12 @@ from environs import Env
 import telegram
 
 
-def send_message_by_bot(bot_credentials, response):
+def send_message_by_bot(bot_credentials, checked_lessons):
     bot = telegram.Bot(token=bot_credentials['bot_token'])
     chat_id = bot_credentials['chat_id']
-    intro_message = f'У вас проверили работу "{response["lesson_title"]}."'
-    lesson_url_message = f'Ссылка на работу: {response["lesson_url"]}'
-    if response['is_negative']:
+    intro_message = f'У вас проверили работу "{checked_lessons["lesson_title"]}."'
+    lesson_url_message = f'Ссылка на работу: {checked_lessons["lesson_url"]}'
+    if checked_lessons['is_negative']:
         result_message = 'К сожалению в работе нашлись ошибки.'
     else:
         result_message = 'Преподавателю всё понравилось, можно приступать к следующему уроку!'
@@ -20,7 +20,7 @@ def send_message_by_bot(bot_credentials, response):
     bot.send_message(chat_id=chat_id, text=message)
 
 
-def long_poll_review_list(personal_token, bot_credentials, timestamp=0):
+def send_checked_lessons_to_telegram(personal_token, bot_credentials, timestamp=0):
 
     headers = {
         'Authorization': f'Token {personal_token}',
@@ -28,29 +28,18 @@ def long_poll_review_list(personal_token, bot_credentials, timestamp=0):
 
     url = 'https://dvmn.org/api/long_polling/'
     timeout = 100
-    try:
-        if timestamp:
-            logging.debug(f'1. Timestamp is {timestamp}')
-            payload = {'timestamp': timestamp}
-            response = requests.get(url=url, headers=headers, timeout=timeout, params=payload)
-        else:
-            logging.debug(f'2. Timestamp is {timestamp}')
-            response = requests.get(url=url, headers=headers, timeout=timeout)
-    except requests.exceptions.ReadTimeout:
-        logging.warning('Timeout reached out.')
-        return
-    except requests.exceptions.ConnectionError:
-        logging.warning('Connection is broken.')
-        sleep(timeout)
-        return
+
+    logging.debug(f'1. Timestamp is {timestamp}')
+    payload = {'timestamp': timestamp}
+    response = requests.get(url=url, headers=headers, timeout=timeout, params=payload)
 
     response.raise_for_status()
-    response = response.json()
+    checked_lessons = response.json()
 
-    if response["status"] == "timeout":
-        return response["timestamp_to_request"]
+    if checked_lessons["status"] == "timeout":
+        return checked_lessons["timestamp_to_request"]
     else:
-        send_message_by_bot(bot_credentials, response['new_attempts'][0])
+        send_message_by_bot(bot_credentials, checked_lessons['new_attempts'][0])
 
 
 def main():
@@ -60,18 +49,23 @@ def main():
     if env.bool("LOGGING_DEBUG"):
         logging.basicConfig(level=logging.DEBUG)
 
-    personal_token = env.str("PERSONAL_TOKEN")
+    telegram_user_token = env.str("TELEGRAM_USER_TOKEN")
     timestamp = 0
     bot_credentials = {
-        'bot_token': env.str("BOT_TOKEN"),
-        'chat_id': env.int('chat_id'),
+        'bot_token': env.str("TELEGRAM_BOT_TOKEN"),
+        'chat_id': env.int('TELEGRAM_CHAT_ID'),
     }
 
-    try:
-        while True:
-            timestamp = long_poll_review_list(personal_token, bot_credentials, timestamp)
-    except requests.HTTPError:
-        logging.error("Can't retrieve review list from API.")
+    while True:
+        try:
+            timestamp = send_checked_lessons_to_telegram(telegram_user_token, bot_credentials, timestamp)
+        except requests.HTTPError:
+            logging.error("Can't retrieve review list from API.")
+        except requests.exceptions.ReadTimeout:
+            logging.warning('Timeout reached out.')
+        except requests.exceptions.ConnectionError:
+            logging.warning('Connection is broken.')
+            sleep(100)
 
 
 if __name__ == "__main__":
