@@ -20,28 +20,6 @@ def send_message_by_bot(bot_credentials, checked_lessons):
     bot.send_message(chat_id=chat_id, text=message)
 
 
-def send_checked_lessons_to_telegram(personal_token, bot_credentials, timestamp=0):
-
-    headers = {
-        'Authorization': f'Token {personal_token}',
-    }
-
-    url = 'https://dvmn.org/api/long_polling/'
-    timeout = 100
-
-    logging.debug(f'1. Timestamp is {timestamp}')
-    payload = {'timestamp': timestamp}
-    response = requests.get(url=url, headers=headers, timeout=timeout, params=payload)
-
-    response.raise_for_status()
-    checked_lessons = response.json()
-
-    if checked_lessons["status"] == "timeout":
-        return checked_lessons["timestamp_to_request"]
-    else:
-        send_message_by_bot(bot_credentials, checked_lessons['new_attempts'][0])
-
-
 def main():
 
     env = Env()
@@ -50,7 +28,7 @@ def main():
         logging.basicConfig(level=logging.DEBUG)
 
     telegram_user_token = env.str("TELEGRAM_USER_TOKEN")
-    timestamp = 0
+    timestamp = None
     bot_credentials = {
         'bot_token': env.str("TELEGRAM_BOT_TOKEN"),
         'chat_id': env.int('TELEGRAM_CHAT_ID'),
@@ -58,7 +36,24 @@ def main():
 
     while True:
         try:
-            timestamp = send_checked_lessons_to_telegram(telegram_user_token, bot_credentials, timestamp)
+            headers = {
+                'Authorization': f'Token {telegram_user_token}',
+            }
+
+            url = 'https://dvmn.org/api/long_polling/'
+            timeout = 100
+
+            logging.debug(f'1. Timestamp is {timestamp}')
+            payload = {'timestamp': timestamp}
+            response = requests.get(url=url, headers=headers, timeout=timeout, params=payload)
+
+            response.raise_for_status()
+            checked_lessons = response.json()
+
+            if checked_lessons["status"] == "timeout":
+                timestamp = checked_lessons["timestamp_to_request"]
+            else:
+                send_message_by_bot(bot_credentials, checked_lessons['new_attempts'][0])
         except requests.HTTPError:
             logging.error("Can't retrieve review list from API.")
         except requests.exceptions.ReadTimeout:
