@@ -1,6 +1,8 @@
 import logging
 import pprint
 from time import sleep
+import traceback
+
 
 import requests
 from environs import Env
@@ -37,10 +39,14 @@ def main():
     env = Env()
     env.read_env()
 
-    telegram_user_token = env.str("TELEGRAM_USER_TOKEN")
+    telegram_user_token = env.str('TELEGRAM_USER_TOKEN')
     timestamp = None
     bot_credentials = {
-        'bot_token': env.str("TELEGRAM_BOT_TOKEN"),
+        'bot_token': env.str('TELEGRAM_BOT_TOKEN'),
+        'chat_id': env.int('TELEGRAM_CHAT_ID'),
+    }
+    error_bot_credentials = {
+        'bot_token': env.str('TELEGRAM_ERROR_BOT_TOKEN'),
         'chat_id': env.int('TELEGRAM_CHAT_ID'),
     }
     logging.basicConfig(format='%(message)s')
@@ -50,7 +56,7 @@ def main():
     else:
         logger.setLevel(logging.INFO)
 
-    logger.addHandler(TelegramLogsHandler(tg_bot_token=bot_credentials['bot_token'], chat_id=bot_credentials['chat_id']))
+    logger.addHandler(TelegramLogsHandler(tg_bot_token=error_bot_credentials['bot_token'], chat_id=error_bot_credentials['chat_id']))
 
     logger.info('Бот начал работу')
 
@@ -82,6 +88,9 @@ def main():
         except requests.exceptions.ConnectionError:
             logger.warning('Connection is broken.')
             sleep(100)
+        except Exception as ex:
+            error_message = f'Бот упал с ошибкой: {ex}\n{traceback.format_exc()}'
+            logger.error(error_message)
     logger.info('bot is shutdown')
 
 
