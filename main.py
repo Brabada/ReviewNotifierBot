@@ -1,12 +1,13 @@
 import logging
-import pprint
-from time import sleep
 import traceback
-
+from time import sleep
 
 import requests
-from environs import Env
 import telegram
+from environs import Env
+
+
+logger = logging.getLogger('telegram_bot')
 
 
 class TelegramLogsHandler(logging.Handler):
@@ -40,7 +41,6 @@ def main():
     env.read_env()
 
     telegram_user_token = env.str('TELEGRAM_USER_TOKEN')
-    timestamp = None
     bot_credentials = {
         'bot_token': env.str('TELEGRAM_BOT_TOKEN'),
         'chat_id': env.int('TELEGRAM_CHAT_ID'),
@@ -49,17 +49,17 @@ def main():
         'bot_token': env.str('TELEGRAM_ERROR_BOT_TOKEN'),
         'chat_id': env.int('TELEGRAM_CHAT_ID'),
     }
+
+    # configuring telegram logger
     logging.basicConfig(format='%(message)s')
-    logger = logging.getLogger('telegram_bot')
     if env.bool("LOGGING_DEBUG"):
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
-
     logger.addHandler(TelegramLogsHandler(tg_bot_token=error_bot_credentials['bot_token'], chat_id=error_bot_credentials['chat_id']))
 
     logger.info('Бот начал работу')
-
+    timestamp = None
     while True:
         try:
             headers = {
