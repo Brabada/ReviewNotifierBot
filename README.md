@@ -29,7 +29,7 @@ logging.WARNING.
 ## <a name="howtolaunch" /> Как запускать?
 - Создайте бота по [инструкции](https://github.com/python-telegram-bot/v13.x-wiki/wiki/Introduction-to-the-API).
 - Cоздайте `.env` и заполните поля из раздела "Переменные окружения"
-следующим образом `export PERSONAL_TOKEN=ваш_персональный_ключ` и так далее.
+следующим образом `PERSONAL_TOKEN=ваш_персональный_ключ` и так далее.
 - Установите пакеты:
 ```shell
 $ pip install -r requirements.txt
@@ -48,7 +48,7 @@ $ docker build -t review-bot-image .
 ```
 - Запустите контейнер через команду:
 ```shell
-$ docker run -d --name review-bot-container review-bot-image
+$ docker run -d --name review-bot-container --env-file ./.env review-bot-image
 ```
 - Для просмотра содержимого контейнера введите команду:
 ```shell
