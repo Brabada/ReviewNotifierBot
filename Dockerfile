@@ -1,6 +1,6 @@
-FROM python:3.10.12-alpine
+FROM python:3.10.12-slim-bookworm
 WORKDIR /opt/notifier-bot
-COPY requirements.txt ./
-RUN pip3 install -r requirements.txt --trusted-host pypi.org --trusted-host files.pythonhosted.org
+RUN --mount=type=bind,source=requirements.txt,target=/tmp/requirements.txt \
+pip3 install -r /tmp/requirements.txt --trusted-host pypi.org --trusted-host files.pythonhosted.org 
 COPY main.py ./
 CMD ["python3", "main.py"]
